@@ -1,6 +1,32 @@
-#include "stdafx.h"
+/*
+* Project: 	DirectShowCamera
+* File: 	DirectShowCamera.cpp
+* Author: 	Ali Ahmadvand www.linkedin.com/in/ali-ahmadvand
+* Date: 2023
+*
+* Description:
+* In this project I have shown how to connect to USB cameras and do some operations by Microsoft DirectShow.
+* all codes have been writen on Microsoft Visual Studio and C++ language.
+* The operation that this project does are :
+*    -Connect and find camera by its DevicePath (beccause I have seen some devices with the exactly same PID&VID)
+*    -take images with custome config
+*    -loading all configs that a camera has
+*    -Write Text on images
+*    -Recording video -Editing all frames one by one by grabbing frames.
+*	 -write text on live video
+*
+* License: MIT
+*
+* Acknowledgments:
+* this class is just a sample for learning and I hope it be usful.
+*/
 
+#include "stdafx.h"
 #include "DirectShowCamera.h"
+#include <cstdlib>
+//Or the c style header:
+#include <stdlib.h>
+
 typedef map<string, string> CameraNameList;
 
 
@@ -45,14 +71,14 @@ HRESULT DirectShowCamera::SelectCamera(pair<string, string>& DeviceUniquePath)
 						const std::string cameraPath(cameraPathRaw.begin(), cameraPathRaw.end());
 						cout << "Camera :" << cameraPath << "\n" << endl;
 						auto strlist = split((string)cameraPath, "#");
-						cout << "strlist :" << strlist.size() << "\n" << endl;
+						//cout << "strlist :" << strlist.size() << "\n" << endl;
 						if (strlist.size() > 1)
 						{
 
 							auto strlist2 = split(strlist[1], "&");
 							if (strlist2.size() > 1)
 							{
-								cout << "strlist2 :" << strlist2.size() << "\n" << endl;
+								//cout << "strlist2 :" << strlist2.size() << "\n" << endl;
 								item = make_pair(cameraPath, strlist2[0] + strlist2[1]);
 								cout << "Final Name :" << item.first << "\n" << endl;
 							}
@@ -90,6 +116,10 @@ HRESULT DirectShowCamera::SelectCamera(pair<string, string>& DeviceUniquePath)
 		return -2;
 	//	LOG4CPLUS_DEBUG(Logger::getInstance(DEVELOPER_APPENDER_ID), "SelectCamera 2");
 	hr = pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void**)&pCap);
+
+	pMoniker->Release();
+	pMoniker = NULL;
+
 	return hr;
 }
 
@@ -159,43 +189,49 @@ int	DirectShowCamera::GetAvailableCameraCount()
 	IEnumMoniker* pEnumTemp = NULL;
 	IMoniker* pMonikerTemp = NULL;
 	hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pDevEnumTemp));
-	hr = pDevEnumTemp->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnumTemp, 0);
-	hr = pEnumTemp->Reset();
-	while (pEnumTemp->Next(1, &pMonikerTemp, NULL) == S_OK)
+	if (hr == S_OK && pDevEnumTemp != NULL)
 	{
-
-		if (hr == S_OK)
+		hr = pDevEnumTemp->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnumTemp, 0);
+		if (hr == S_OK && pEnumTemp != NULL)
 		{
-			string cameraFriendlyName;
-			IPropertyBag* pPropBag;
-			hr = pMonikerTemp->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
-			if (FAILED(hr))
+			hr = pEnumTemp->Reset();
+			while (pEnumTemp->Next(1, &pMonikerTemp, NULL) == S_OK)
 			{
-				continue;
-			}
-			VARIANT var;
-			VariantInit(&var);
-			hr = pPropBag->Read(L"DevicePath", &var, 0);
-			if (SUCCEEDED(hr))
-			{
-				std::wstring cameraPathRaw(var.bstrVal, SysStringLen(var.bstrVal));
-				const std::string cameraPath(cameraPathRaw.begin(), cameraPathRaw.end());
-				auto strlist = split((string)cameraPath, "#");
-				if (strlist.size() > 1)
+
+				if (hr == S_OK)
 				{
-					auto strlist2 = split(strlist[1], "&");
-					if (strlist2.size() > 1)
+					string cameraFriendlyName;
+					IPropertyBag* pPropBag;
+					hr = pMonikerTemp->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
+					if (FAILED(hr))
 					{
-						cameraCount++;
+						continue;
 					}
+					VARIANT var;
+					VariantInit(&var);
+					hr = pPropBag->Read(L"DevicePath", &var, 0);
+					if (SUCCEEDED(hr))
+					{
+						std::wstring cameraPathRaw(var.bstrVal, SysStringLen(var.bstrVal));
+						const std::string cameraPath(cameraPathRaw.begin(), cameraPathRaw.end());
+						auto strlist = split((string)cameraPath, "#");
+						if (strlist.size() > 1)
+						{
+							auto strlist2 = split(strlist[1], "&");
+							if (strlist2.size() > 1)
+							{
+								cameraCount++;
+							}
+
+						}
+					}
+					VariantClear(&var);
+					pPropBag->Release();
 
 				}
+				Sleep(10);
 			}
-			VariantClear(&var);
-			pPropBag->Release();
-
 		}
-		Sleep(10);
 	}
 
 	if (pDevEnumTemp != NULL)
@@ -204,6 +240,7 @@ int	DirectShowCamera::GetAvailableCameraCount()
 	}
 	if (pEnumTemp != NULL)
 	{
+		pEnumTemp->Reset();
 		pEnumTemp->Release();
 	}
 	if (pMonikerTemp != NULL)
@@ -220,7 +257,7 @@ CameraNameList DirectShowCamera::getCameraNameList()
 	//Logger::getInstance(DEVELOPER_APPENDER_ID).log(TRACE_LOG_LEVEL, L">> DirectShowCamera::getCameraNameList");
 	CameraNameList cameraList;
 	cameraList.clear();
-	exit_message("Initialize for Video", 0);
+	exit_message("Initialize for DirectShowCamera::getCameraNameList", 0);
 	if (CoInitializeEx(NULL, COINIT_MULTITHREADED) == S_OK)
 	{
 		if (CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_ICaptureGraphBuilder2, (void**)&pBuild) == S_OK)
@@ -232,7 +269,7 @@ CameraNameList DirectShowCamera::getCameraNameList()
 					auto hr = pEnum->Reset();
 					while (pEnum->Next(1, &pMoniker, NULL) == S_OK)
 					{
-						string cameraFriendlyName;
+						string cameraFriendlyName = "Not Detected";
 						IPropertyBag* pPropBag;
 						hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
 						if (FAILED(hr))
@@ -270,19 +307,19 @@ CameraNameList DirectShowCamera::getCameraNameList()
 						VariantClear(&var);
 						pPropBag->Release();
 					}
-					exit_message("Finish getCameraNameList", 0);
+					exit_message("Finish DirectShowCamera::getCameraNameList", 0);
 				}
 				else
-					exit_message("Create Class Enumerator Failed", 0);
+					exit_message("Create Class Enumerator Failed DirectShowCamera::getCameraNameList", 0);
 			}
 			else
-				exit_message("Create Device Enumerator Failed", 0);
+				exit_message("Create Device Enumerator Failed DirectShowCamera::getCameraNameList", 0);
 		}
 		else
-			exit_message("Create Device Enumerator Failed", 0);
+			exit_message("Create Device Enumerator Failed DirectShowCamera::getCameraNameList", 0);
 	}
 	else
-		exit_message("Initialize Multi Thread Failed", 0);
+		exit_message("Initialize Multi Thread Failed DirectShowCamera::getCameraNameList", 0);
 
 	CoUninitialize();
 	//	LOG4CPLUS_DEBUG(Logger::getInstance(DEVELOPER_APPENDER_ID), "getCameraNameList end");
@@ -301,10 +338,10 @@ int DirectShowCamera::getDeviceID()
 	return DeviceID;
 }
 
-bool DirectShowCamera::RecordVideo(pair<string, string>& pIDvID, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode = Asynch, LPCTSTR EngraveText)
+bool DirectShowCamera::RecordVideo(pair<string, string>& pIDvID, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode = Asynch, TCHAR* EngraveText = 0)
 {
 	HRESULT hr = 0;
-	exit_message("Initialize for RecordVideo with pIDvID", 0);
+	exit_message("Initialize DirectShowCamera::RecordVideo with pIDvID", 0);
 	if (CoInitializeEx(NULL, COINIT_MULTITHREADED) == S_OK)
 	{
 		if (CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_ICaptureGraphBuilder2, (void**)&pBuild) == S_OK)
@@ -319,23 +356,24 @@ bool DirectShowCamera::RecordVideo(pair<string, string>& pIDvID, long Duration, 
 			}
 			else
 			{
-				exit_message("Error in select camera", 1);
+				exit_message("Error in select camera DirectShowCamera::RecordVideo", 1);
 				return false;
 			}
 		}
 		else
 		{
-			exit_message("Error in CoCreateInstance", 1);
+			exit_message("Error in CoCreateInstance DirectShowCamera::RecordVideo", 1);
 			return false;
 		}
 	}
 	else
 	{
-		exit_message("Error in CoCreateInstance", 1);
+		exit_message("Error in CoCreateInstance DirectShowCamera::RecordVideo", 1);
 		return false;
 	}
 }
-bool DirectShowCamera::RecordVideo(int CameraNumber, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode = Asynch, LPCTSTR EngraveText)
+
+bool DirectShowCamera::RecordVideo(int CameraNumber, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode = Asynch, TCHAR* EngraveText = 0)
 {
 	if (inUse)
 	{
@@ -343,7 +381,7 @@ bool DirectShowCamera::RecordVideo(int CameraNumber, long Duration, LPCTSTR Outp
 	}
 	inUse = true;
 	HRESULT hr = 0;
-	exit_message("Initialize for RecordVideo with pIDvID", 0);
+	exit_message("Initialize for DirectShowCamera::RecordVideo with Camera Number", 0);
 	if (CoInitializeEx(NULL, COINIT_MULTITHREADED) == S_OK)
 	{
 		if (CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_ICaptureGraphBuilder2, (void**)&pBuild) == S_OK)
@@ -358,19 +396,19 @@ bool DirectShowCamera::RecordVideo(int CameraNumber, long Duration, LPCTSTR Outp
 			}
 			else
 			{
-				exit_message("Error in select camera", 1);
+				exit_message("Error in select camera DirectShowCamera::RecordVideo", 1);
 				return false;
 			}
 		}
 		else
 		{
-			exit_message("Error in CoCreateInstance", 1);
+			exit_message("Error in CoCreateInstance DirectShowCamera::RecordVideo", 1);
 			return false;
 		}
 	}
 	else
 	{
-		exit_message("Error in CoCreateInstance", 1);
+		exit_message("Error in CoCreateInstance DirectShowCamera::RecordVideo", 1);
 		return false;
 	}
 
@@ -435,7 +473,7 @@ bool DirectShowCamera::StartRecordVideo(long Duration, LPCTSTR OutputFileName, S
 	hr = ConfigFormat();
 	hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pSampleGrabberFilter));
 	hr = pGraph->AddFilter(pSampleGrabberFilter, L"Sample Grabber");
-	hr = pSampleGrabberFilter->QueryInterface(IID_ISampleGrabber, (void**)&pSampleGrabber);
+	hr = pSampleGrabberFilter->QueryInterface(DexterLib::IID_ISampleGrabber, (void**)&pSampleGrabber);
 	hr = pBuild->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, pCap, pSampleGrabberFilter, pASFWriter);             // Pointer to the sink filter (ASF Writer).
 
 	/*AM_MEDIA_TYPE mt;
@@ -478,12 +516,13 @@ bool DirectShowCamera::StartRecordVideo(long Duration, LPCTSTR OutputFileName, S
 
 				}
 				SampleCallback.setFrameSize(pHeight, pWidth);
-				hr = pSampleGrabber->SetCallback(&SampleCallback, 0);
+				hr = pSampleGrabber->SetCallback(&SampleCallback, 0);//if pass 0 call SampleCB if 1 call BufferCB
 			}
+
 		}
 		if (hr)
 		{
-			exit_message("Stoped ", 0);
+			exit_message("Stoped DirectShowCamera::RecordVideo", 0);
 			inUse = false;
 			return false;
 		}
@@ -520,7 +559,7 @@ bool DirectShowCamera::StartRecordVideo(long Duration, LPCTSTR OutputFileName, S
 
 	if (hr != S_OK)
 	{
-		exit_message("Stoped ", 0);
+		exit_message("Stoped DirectShowCamera::RecordVideo", 1);
 		inUse = false;
 		return false;
 	}
@@ -530,7 +569,7 @@ bool DirectShowCamera::StartRecordVideo(long Duration, LPCTSTR OutputFileName, S
 		long evCode = 0;
 		auto result = pEvent->WaitForCompletion(videoDuration, &evCode);
 		hr = pControl->Stop();
-		exit_message("Stoped Video By Time Limit", 2);
+		exit_message("Stoped Video By Time Limit DirectShowCamera::RecordVideo", 2);
 		if (hr != S_OK)
 		{
 			return false;
@@ -543,26 +582,45 @@ bool DirectShowCamera::TakeImage(pair<string, string>& pIDvID, int Height, int W
 {
 	HRESULT hr = 0;
 	threadName = OutputFileName;
+	if (pIDvID != selectedCameraName)
+	{
+		exit_message("Initialize for Changing camera DirectShowCamera::TakeImage start with Cam Name", 3);
+	}
 	if (!isOpen)
 	{
-		exit_message("Initialize for TakeImage", 3);
+		exit_message("Initialize for DirectShowCamera::TakeImage start with Cam Name", 3);
 		hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 		hr = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_ICaptureGraphBuilder2, (void**)&pBuild);
 		hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&pGraph);
 		hr = pBuild->SetFiltergraph(pGraph);
 		if (SelectCamera(pIDvID) != S_OK)
 		{
-			exit_message("Error in select camera", 1);
-			return hr;
+			exit_message("Error in select camera DirectShowCamera::TakeImage start with Cam Name", 1);
+			return false;
 		}
 		hr = pGraph->AddFilter(pCap, L"Capture Filter");
 		hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void**)&pSampleGrabberFilter);
-		hr = pSampleGrabberFilter->QueryInterface(IID_ISampleGrabber, (void**)&pSampleGrabber);
+		hr = pSampleGrabberFilter->QueryInterface(DexterLib::IID_ISampleGrabber, (void**)&pSampleGrabber);
 		hr = pSampleGrabber->SetBufferSamples(TRUE);
-		//openerThread = std::thread(&DirectShowCamera::openCamera, this, Height, Width);
-		openCamera(Height, Width);
-		isOpen = true;
-		Sleep(1000);
+		if (hr != S_OK)
+		{
+			exit_message("Error in thread Handler DirectShowCamera::TakeImage start with Cam Name", 1);
+			return false;
+		}
+		//openerThread = std::thread(&DirectShowCamera::openCamera, this, Height, Width);		
+		if (openCamera(Height, Width))
+		{
+			isOpen = true;
+			Sleep(100);
+			//m.lock();
+			//m.unlock();
+			//LOG4CPLUS_INFO(Logger::getInstance(DEVELOPER_APPENDER_ID), "DirectShowCamera::Take Image - Result : Open camera Successful - Camera Name : " << pIDvID.first.c_str());
+		}
+		else
+		{
+			//LOG4CPLUS_INFO(Logger::getInstance(DEVELOPER_APPENDER_ID), "DirectShowCamera::Take Image - Result : Open Camera Fails - Camera Name : " << pIDvID.first.c_str());
+			return false;
+		}
 	}
 
 	if (captureImage(OutputFileName, ImageLabel) == S_OK)
@@ -583,7 +641,7 @@ bool DirectShowCamera::TakeImage(int CameraNumber, int Height, int Width, LPCTST
 	threadName = OutputFileName;
 	if (!isOpen)
 	{
-		exit_message("Initialize for TakeImage", 3);
+		exit_message("Initialize for DirectShowCamera::TakeImage start with Cam Number", 3);
 		hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 		hr = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_ICaptureGraphBuilder2, (void**)&pBuild);
 		hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&pGraph);
@@ -591,17 +649,26 @@ bool DirectShowCamera::TakeImage(int CameraNumber, int Height, int Width, LPCTST
 		hr = SelectCamera(CameraNumber);
 		if (FAILED(hr))
 		{
-			exit_message("Error in select camera", 1);
+			exit_message("Error in select camera DirectShowCamera::TakeImage start with Cam Number", 1);
 			return hr;
 		}
 		hr = pGraph->AddFilter(pCap, L"Capture Filter");
 		hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void**)&pSampleGrabberFilter);
-		hr = pSampleGrabberFilter->QueryInterface(IID_ISampleGrabber, (void**)&pSampleGrabber);
+		hr = pSampleGrabberFilter->QueryInterface(DexterLib::IID_ISampleGrabber, (void**)&pSampleGrabber);
 		hr = pSampleGrabber->SetBufferSamples(TRUE);
 		//openerThread = std::thread(&DirectShowCamera::openCamera,this,Height,Width);
-		openCamera(Height, Width);
-		isOpen = true;
-		//Sleep(1000);
+		if (openCamera(Height, Width))
+		{
+			isOpen = true;
+			Sleep(100);
+			//m.lock();
+			//m.unlock();
+			//LOG4CPLUS_INFO(Logger::getInstance(DEVELOPER_APPENDER_ID), "DirectShowCamera::Take Image - Result : Open Camera Successful - Camera Name : " << CameraNumber);
+		}
+		else
+		{
+
+		}
 	}
 	if (captureImage(OutputFileName, ImageLabel) == S_OK)
 	{
@@ -614,45 +681,45 @@ bool DirectShowCamera::TakeImage(int CameraNumber, int Height, int Width, LPCTST
 
 }
 
-void DirectShowCamera::openCamera(int Height, int Width)
+bool DirectShowCamera::openCamera(int Height, int Width)
 {
 	int snapshot_delay = 2000;
 	int show_preview_window = 0;
 	int list_devices = 0;
 	int device_number = 1;
 	char char_buffer[100];
-	int loopController = 10;
+	int loopController = 100;
 	AM_MEDIA_TYPE mt;
 	ZeroMemory(&mt, sizeof(AM_MEDIA_TYPE));
 	mt.majortype = MEDIATYPE_Video;
 	mt.subtype = MEDIASUBTYPE_RGB24;
 	hr = pSampleGrabber->SetMediaType((_AMMediaType*)&mt);
-	if (FAILED(hr)) { return; }
+	if (FAILED(hr)) { return false; }
 
 	// Add sample grabber filter to filter graph
 	hr = pGraph->AddFilter(pSampleGrabberFilter, L"SampleGrab");
-	if (FAILED(hr)) { return; }
+	if (FAILED(hr)) { return false; }
 	// Create Null Renderer filter
 	hr = CoCreateInstance(CLSID_NullRenderer, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void**)&pNullRenderer);
-	if (FAILED(hr)) { return; }
+	if (FAILED(hr)) { return false; }
 	// Add Null Renderer filter to filter graph
 	hr = pGraph->AddFilter(pNullRenderer, L"NullRender");
 
-	if (FAILED(hr)) { return; }
+	if (FAILED(hr)) { return false; }
 #pragma region selectCompresssion_Resulation	
 	//if (Width > 0 && Height > 0)
 	{
 		IAMStreamConfig* pConfig = NULL;
 		hr = pBuild->FindInterface(&PIN_CATEGORY_CAPTURE, 0, pCap, IID_IAMStreamConfig, (void**)&pConfig);
-		if (FAILED(hr)) { return; }
+		if (FAILED(hr)) { return false; }
 		int iCount = 0, iSize = 0;
 		hr = pConfig->GetNumberOfCapabilities(&iCount, &iSize);
-		if (FAILED(hr)) { return; }
+		if (FAILED(hr)) { return false; }
 		// Check the size to make sure we pass in the correct structure.
 		if (iSize == sizeof(VIDEO_STREAM_CONFIG_CAPS))
 		{
 			// Use the video capabilities structure.
-			LONG lsize = 0x00;
+			DWORD lsize = 0x00;
 			for (int iFormat = 0; iFormat < iCount; iFormat++)
 			{
 				VIDEO_STREAM_CONFIG_CAPS scc;
@@ -681,12 +748,16 @@ void DirectShowCamera::openCamera(int Height, int Width)
 								lsize = pVih->bmiHeader.biSizeImage;
 								//pVih->bmiHeader.biBitCount = 16;
 								hr = pConfig->SetFormat(pmtConfig);
-								if (FAILED(hr)) { return; }
+								if (FAILED(hr)) { return false; }
 							}
 						}
 					}
 					// Delete the media type when you are done.
 				}
+			}
+			if (!lsize)
+			{
+				//LOG4CPLUS_WARN(Logger::getInstance(DEVELOPER_APPENDER_ID), "DirectShowCamera::openCamera Couldnt Find Selected Resolution");
 			}
 		}
 	}
@@ -695,7 +766,7 @@ void DirectShowCamera::openCamera(int Height, int Width)
 	// Connect up the filter graph's capture stream
 	hr = pBuild->RenderStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, pCap, pSampleGrabberFilter, pNullRenderer);
 
-	if (FAILED(hr)) { return; }
+	if (FAILED(hr)) { return false; }
 	// Connect up the filter graph's preview stream
 	if (show_preview_window > 0)
 	{
@@ -703,29 +774,36 @@ void DirectShowCamera::openCamera(int Height, int Width)
 	}
 	// Get media control interfaces to graph builder object
 	hr = pGraph->QueryInterface(IID_IMediaControl, (void**)&pControl);
+	if (FAILED(hr)) { return false; }
 	hr = pGraph->QueryInterface(IID_IMediaEvent, (void**)&pEvent);
-
-	if (FAILED(hr)) { return; }
+	if (FAILED(hr)) { return false; }
 	// Run graph
 	while (loopController--)
 	{
 		hr = pControl->Run();
-		if (hr == S_OK) break; // graph is now running
-		if (hr == S_FALSE) continue; // graph still preparing to run		
+		if (SUCCEEDED(hr))
+			break; // graph is now running
+		Sleep(10);
 	}
-	if (0 && hr == S_OK)
+	if (SUCCEEDED(hr))
 	{
-		long evCode = 0;
-		pEvent->WaitForCompletion(INFINITE, &evCode);
+		return true;
+		//m.unlock();
+		//long evCode = 0;
+		//pEvent->WaitForCompletion(INFINITE, &evCode);
 	}
-
-	//exit_message("Could not run filter graph", 6);
-	return;
+	else
+	{
+		//LOG4CPLUS_WARN(Logger::getInstance(DEVELOPER_APPENDER_ID), "DirectShowCamera::openCamera - Result : Failed - Reason : IMediaControl not run");
+		return false;
+	}
+	//m.unlock();	
+	//return false;
 }
 
 bool DirectShowCamera::WriteOnImage(LPCTSTR ImageFileName, LPCTSTR EngraveText)
 {
-	bool bRet = false;
+	auto bRet = false;
 	//Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 	//ULONG_PTR gdiplusToken;
 	//GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
@@ -803,7 +881,7 @@ DirectShowCamera::DirectShowCamera(int CameraNumber, int CaptureType, LPCTSTR Ou
 		SelectCamera(CameraNumber);
 		hr = pGraph->AddFilter(pCap, L"Capture Filter");
 		hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void**)&pSampleGrabberFilter);
-		hr = pSampleGrabberFilter->QueryInterface(IID_ISampleGrabber, (void**)&pSampleGrabber);
+		hr = pSampleGrabberFilter->QueryInterface(DexterLib::IID_ISampleGrabber, (void**)&pSampleGrabber);
 		hr = pSampleGrabber->SetBufferSamples(TRUE);
 	}
 
@@ -822,15 +900,15 @@ bool DirectShowCamera::Stop()
 		pControl->Stop();
 	}
 
-	exit_message("Stoped Video By Stop", 4);
+	exit_message("Stoped Video DirectShowCamera::Stop", 4);
 	return true;
 }
 
 DirectShowCamera::~DirectShowCamera()
 {
 	Gdiplus::GdiplusShutdown(gdiplusToken);
-	openerThread.join();
-	exit_message("deconstructor", 0);
+	//openerThread.join();
+	exit_message("deconstructor", 5);
 }
 
 void DirectShowCamera::exit_message(const char* error_message, int error)
@@ -925,6 +1003,7 @@ void DirectShowCamera::exit_message(const char* error_message, int error)
 	}
 	if (pEnum != NULL)
 	{
+		pEnum->Reset();
 		pEnum->Release();
 		pEnum = NULL;
 	}
@@ -945,9 +1024,10 @@ void DirectShowCamera::exit_message(const char* error_message, int error)
 		pConfigWM = NULL;
 	}
 	SampleCallback.setVideoText(NULL);
-	//cout << "CoUninitializeStart" << "\n" << endl;
+	selectedCameraName = make_pair("", "");
 	CoUninitialize();
-	//cout << "CoUninitializeFinish" << "\n" << endl;
+	CoUninitialize();
+	//LOG4CPLUS_INFO(Logger::getInstance(DEVELOPER_APPENDER_ID), "DirectShowCamera::exit_message successfull - " << error_message);
 }
 
 int DirectShowCamera::captureImage(LPCTSTR FileName, LPCTSTR ImageLabel)
@@ -960,28 +1040,28 @@ int DirectShowCamera::captureImage(LPCTSTR FileName, LPCTSTR ImageLabel)
 		// the required buffer size; not looking for actual data yet.
 		hr = pSampleGrabber->GetCurrentBuffer(&buffer_size, NULL);
 		// Keep trying until buffer_size is set to non-zero value.
-		if (hr == S_OK && buffer_size != 0) break;
+		if (SUCCEEDED(hr) && buffer_size > 0) break;
 		// If the return value isn't S_OK or VFW_E_WRONG_STATE
 		// then something has gone wrong. VFW_E_WRONG_STATE just
 		// means that the filter graph is still starting up and
 		// no data has arrived yet in the sample grabber filter.
 		Sleep(1);
-		if (hr != S_OK && hr != VFW_E_WRONG_STATE)
+		/*if (hr != S_OK && hr != VFW_E_WRONG_STATE)
 		{
 			exit_message("Could not get buffer size", 7);
 			return -1;
-		}
+		}*/
 	}
 
 	if (buffer_size <= 0)
 	{
-		exit_message("Could not get buffer size", 8);
+		exit_message("Could not get buffer size DirectShowCamera::captureImage", 8);
 		return -1;
 	}
 
 	pBuffer = new char[buffer_size];
 	if (!pBuffer)
-		exit_message("Could not allocate data buffer for image", 1);
+		exit_message("Could not allocate data buffer for image DirectShowCamera::captureImage", 1);
 	// Retrieve image data from sample grabber buffer
 	hr = pSampleGrabber->GetCurrentBuffer(&buffer_size, (long*)pBuffer);
 	if (FAILED(hr)) { return -1; }
@@ -994,11 +1074,14 @@ int DirectShowCamera::captureImage(LPCTSTR FileName, LPCTSTR ImageLabel)
 	hr = pSampleGrabber->GetConnectedMediaType((_AMMediaType*)&mt);
 	if (hr != S_OK)
 	{
-		exit_message("Could not get media type", 9);
+		delete[] pBuffer;
+		pBuffer = NULL;
+		exit_message("Could not get media type DirectShowCamera::captureImage", 9);
 		return -1;
 	}
 	// Retrieve format information
 	VIDEOINFOHEADER* pVih = NULL;
+	Gdiplus::Status  stat = Gdiplus::GenericError;
 	if ((mt.formattype == FORMAT_VideoInfo) && (mt.cbFormat >= sizeof(VIDEOINFOHEADER)) && (mt.pbFormat != NULL))
 	{
 		// Get video info header structure from media type
@@ -1028,7 +1111,6 @@ int DirectShowCamera::captureImage(LPCTSTR FileName, LPCTSTR ImageLabel)
 		GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 		{
 			CLSID   encoderClsid;
-			Gdiplus::Status  stat;
 			Gdiplus::Image* image = Gdiplus::Image::FromStream(stream);
 			if (lstrlen(ImageLabel))
 			{
@@ -1051,11 +1133,13 @@ int DirectShowCamera::captureImage(LPCTSTR FileName, LPCTSTR ImageLabel)
 			}
 			delete image;
 		}
-		Gdiplus::GdiplusShutdown(gdiplusToken);
+		//Gdiplus::GdiplusShutdown(gdiplusToken);
 	}
 	else
 	{
-		exit_message("Wrong media type", 1);
+		delete[] pBuffer;
+		pBuffer = NULL;
+		exit_message("Wrong media type DirectShowCamera::captureImage", 1);
 		return 0xff;
 	}
 	// Free the format block
@@ -1076,7 +1160,7 @@ int DirectShowCamera::captureImage(LPCTSTR FileName, LPCTSTR ImageLabel)
 		delete[] pBuffer;
 		pBuffer = NULL;
 	}
-	return Gdiplus::Ok;
+	return stat;
 }
 
 HRESULT DirectShowCamera::ConfigFormat()
@@ -1364,9 +1448,14 @@ SampleGrabberCallback::~SampleGrabberCallback()
 {
 }
 
-void SampleGrabberCallback::setVideoText(LPCTSTR Text)
+void SampleGrabberCallback::setVideoText(TCHAR* Text)
 {
-	EngraveText = Text;
+	memset(EngraveText, 0x00, sizeof(EngraveText));
+	if (Text != NULL)
+	{
+		int len = lstrlen(Text);
+		memcpy(EngraveText, Text, min(len * sizeof(TCHAR), sizeof(EngraveText)));
+	}
 }
 TCHAR* SampleGrabberCallback::stringToTChar(string data)
 {
@@ -1389,22 +1478,22 @@ inline const std::string SampleGrabberCallback::currentTime()
 {
 	time_t now = time(0);
 	struct tm tstruct;
-	char buf[100] = { 0 };
+	char buf[1000] = { 0 };
 	localtime_s(&tstruct, &now);
-	strftime(buf, sizeof(buf), "%D %H:%M:%S", &tstruct);
+	strftime(buf, sizeof(buf), "%Y/%m/%d %H:%M:%S", &tstruct);
 	return buf;
 }
 HRESULT __stdcall SampleGrabberCallback::SampleCB(double n, IMediaSample* pSample)
 {
 	//framenum++;	
-	AM_MEDIA_TYPE* pMediaType;
-	pSample->GetMediaType(&pMediaType);
+	//AM_MEDIA_TYPE* pMediaType;
+	//pSample->GetMediaType(&pMediaType);
 	BYTE* pBuf = NULL;
 	pSample->GetPointer(&pBuf);
 	Bitmap image(width, height, 2 * width, PixelFormat16bppRGB565, pBuf);
 	Graphics* Gx = Graphics::FromImage(&image);
-	FontFamily  fontFamily(L"Arial");
-	Gdiplus::Font font(&fontFamily, 32, FontStyleBold, UnitPixel);
+	FontFamily  fontFamily(L"Arial Black");
+	Gdiplus::Font font(&fontFamily, 20, FontStyleRegular, UnitWorld);
 	PointF      pointF(10.0f, height - 80);
 	SolidBrush  solidBrush(Color::Red);
 	LPCTSTR dateTime = (LPCTSTR)stringToTChar(currentTime());
@@ -1412,7 +1501,12 @@ HRESULT __stdcall SampleGrabberCallback::SampleCB(double n, IMediaSample* pSampl
 	StringCchCat(pszDest, sizeof(pszDest), dateTime);
 	StringCchCat(pszDest, sizeof(pszDest), L"\n");
 	StringCchCat(pszDest, sizeof(pszDest), EngraveText);
-	delete[] dateTime;
+	delete dateTime;
+
+	/*SolidBrush  brushRect(Color::White);
+	RectF rect(10.0f, height - 80, width - 10, 50.0f);
+	Gx->FillRectangle((Brush*)&brushRect, rect);*/
+
 	Gx->DrawString(pszDest, -1, &font, pointF, &solidBrush);
 	Gx->Save();
 	delete Gx;
@@ -1421,15 +1515,23 @@ HRESULT __stdcall SampleGrabberCallback::SampleCB(double n, IMediaSample* pSampl
 
 HRESULT __stdcall SampleGrabberCallback::BufferCB(double SampleTime, BYTE* pBuffer, long BufferSize)
 {
-	//framenum++;
+
+	////framenum++;
 	BYTE* pBuf = pBuffer;
-	Bitmap image(640, 480, 2 * 640, PixelFormat16bppRGB565, pBuf);
+	Bitmap image(width, height, 2 * width, PixelFormat16bppRGB565, pBuf);
 	Graphics* Gx = Graphics::FromImage(&image);
 	FontFamily  fontFamily(L"Arial");
-	Gdiplus::Font font(&fontFamily, 32, FontStyleBold, UnitPixel);
-	PointF      pointF(10.0f, 400.0f);
+	int penSize = width / 20;
+	Gdiplus::Font font(&fontFamily, penSize, FontStyleBold, UnitPixel);
+	PointF      pointF(10.0f, height - (penSize * 2));
 	SolidBrush  solidBrush(Color::Red);
-	Gx->DrawString(EngraveText, -1, &font, pointF, &solidBrush);
+	LPCTSTR dateTime = (LPCTSTR)stringToTChar(currentTime());
+	TCHAR pszDest[260] = _T("");
+	StringCchCat(pszDest, sizeof(pszDest), dateTime);
+	StringCchCat(pszDest, sizeof(pszDest), L"\n");
+	StringCchCat(pszDest, sizeof(pszDest), EngraveText);
+	delete dateTime;
+	Gx->DrawString(pszDest, -1, &font, pointF, &solidBrush);
 	Gx->Save();
 	delete Gx;
 	return S_OK;

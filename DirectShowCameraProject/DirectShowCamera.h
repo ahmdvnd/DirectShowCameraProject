@@ -60,36 +60,37 @@ public:
 	STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
 	SampleGrabberCallback();
 	~SampleGrabberCallback();
-	void setVideoText(LPCTSTR Text);
+	void setVideoText(TCHAR* Text);
 	inline const std::string currentTime();
 	TCHAR* stringToTChar(string data);
-	void setFrameSize(int frameHeight,int frameWidth);
+	void setFrameSize(int frameHeight, int frameWidth);
 public:
 	// These will get set by the main thread below. We need to
 	// know this in order to write out the bmp	
-	STDMETHODIMP SampleCB(double n, IMediaSample* pSample);
+	STDMETHODIMP SampleCB(double n, IMediaSample* pSample) override;
 	// The sample grabber is calling us back on its deliver thread.
 	// This is NOT the main app thread!
 	//
-	STDMETHODIMP BufferCB(double SampleTime, BYTE* pBuffer, long BufferSize);
+	STDMETHODIMP BufferCB(double SampleTime, BYTE* pBuffer, long BufferSize) override;
 private:
 	long width;
 	long height;
 	long framenum;
-	CString strPath;
+	CString strPath = "";
 	//CString EngraveText;
-	LPCTSTR EngraveText;
+	TCHAR EngraveText[512] = {};
+
 };
 
 class DirectShowCamera
 {
 public:
 	DirectShowCamera();
-	bool RecordVideo(int CameraNumber, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode, LPCTSTR EngraveText=NULL);
-	bool RecordVideo(pair<string, string>& pIDvID, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode, LPCTSTR EngraveText=NULL);
-	bool TakeImage(int CameraNumber,int Height,int Width, LPCTSTR OutputFileName, LPCTSTR ImageLabel);
-	bool TakeImage(pair<string, string>& pIDvID, int Height, int Width, LPCTSTR OutputFileName, LPCTSTR ImageLabel);	
-	void openCamera(int Height, int Width);
+	bool RecordVideo(int CameraNumber, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode, TCHAR* EngraveText);
+	bool RecordVideo(pair<string, string>& pIDvID, long Duration, LPCTSTR OutputFileName, SynchronizMode SynchMode, TCHAR* EngraveText);
+	bool TakeImage(int CameraNumber, int Height, int Width, LPCTSTR OutputFileName, LPCTSTR ImageLabel);
+	bool TakeImage(pair<string, string>& pIDvID, int Height, int Width, LPCTSTR OutputFileName, LPCTSTR ImageLabel);
+	bool openCamera(int Height, int Width);
 	bool WriteOnImage(LPCTSTR ImageFileName, LPCTSTR EngraveText);
 	bool IsAvailable(int CameraNumber);
 	static int	GetAvailableCameraCount();
@@ -105,14 +106,14 @@ public:
 private:
 	ULONG_PTR gdiplusToken;
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-	void* sgcb=NULL;
+	void* sgcb = NULL;
 	SampleGrabberCallback SampleCallback;
 	std::thread openerThread;
-	bool isOpen=false;
-	int DeviceID;
+	bool isOpen = false;
+	int DeviceID = -1;
 	pair<string, string> selectedCameraName;
 	bool	inUse;
-	HRESULT SelectCamera(pair<string, string>&DeviceUniquePath);
+	HRESULT SelectCamera(pair<string, string>& device_unique_path);
 	HRESULT SelectCamera(int DeviceNumber);
 	HRESULT ConfigFormat();
 	void exit_message(const char* error_message, int error);
@@ -122,23 +123,23 @@ private:
 	static vector<string> split(string data, string delimiter);
 	HRESULT ConnectFilters(IGraphBuilder* pGraph, IBaseFilter* pFirst, IBaseFilter* pSecond);
 	HRESULT GetPin(IBaseFilter* pFilter, PIN_DIRECTION PinDir, IPin** ppPin);
-	ICaptureGraphBuilder2 *pBuild = NULL;
-	IGraphBuilder *pGraph = NULL;
-	IBaseFilter *pCap = NULL;
-	IVideoWindow *pWindow = NULL;
-	IMoniker *pMoniker = NULL;
-	IEnumMoniker *pEnum = NULL;
-	ICreateDevEnum *pDevEnum = NULL;
-	IMediaControl *pControl = NULL;
-	IMediaEvent   *pEvent = NULL;   // methods for getting events from the Filter Graph Manager
-	IBaseFilter*   pASFWriter = NULL;
-	IBaseFilter*   pNullRenderer = NULL;
-	IConfigAsfWriter *pConfigWM = NULL;
-	ISampleGrabber *pSampleGrabber = NULL;
-	IBaseFilter *pSampleGrabberFilter = NULL;
-	IPropertyBag *pPropBag = NULL;
-	long videoDuration;//Second
-	LPCTSTR threadName;
+	ICaptureGraphBuilder2* pBuild = NULL;
+	IGraphBuilder* pGraph = NULL;
+	IBaseFilter* pCap = NULL;
+	IVideoWindow* pWindow = NULL;
+	IMoniker* pMoniker = NULL;
+	IEnumMoniker* pEnum = NULL;
+	ICreateDevEnum* pDevEnum = NULL;
+	IMediaControl* pControl = NULL;
+	IMediaEvent* pEvent = NULL;   // methods for getting events from the Filter Graph Manager
+	IBaseFilter* pASFWriter = NULL;
+	IBaseFilter* pNullRenderer = NULL;
+	IConfigAsfWriter* pConfigWM = NULL;
+	ISampleGrabber* pSampleGrabber = NULL;
+	IBaseFilter* pSampleGrabberFilter = NULL;
+	IPropertyBag* pPropBag = NULL;
+	long videoDuration = 0;//Second
+	LPCTSTR threadName = 0;
 	short captureType;
 	char* pBuffer = NULL;
 	HRESULT hr = 0;

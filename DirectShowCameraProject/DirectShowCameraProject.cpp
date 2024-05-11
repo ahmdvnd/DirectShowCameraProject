@@ -88,14 +88,14 @@ void CameraTester()
 			auto it = camNamelist.begin();
 			std::advance(it, camNum);
 			camObjects.at(camNum)->Stop();
-			camObjects.at(camNum)->RecordVideo(make_pair(it->first, it->second), 10, path_wstrVideo.c_str(), Synch);
+			camObjects.at(camNum)->RecordVideo(make_pair(it->first, it->second), 10, path_wstrVideo.c_str(), Synch, 0);
 		}
 		camObjects.clear();
 	}
 }
 int _tmain(int argc, _TCHAR* argv[])
 {
-	CameraTester(); return 0;
+	//CameraTester(); return 0;
 	//threadTest(); return 0;
 	DirectShowCamera cam2;
 	DirectShowCamera cam1;
@@ -107,8 +107,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	//cam4.RecordVideo(2, 10, L"C:/Temp/JustTest2.wmv", Synch);
 
 	//mciSendString(L"open \"Music.mp3\" type mpegvideo alias mp3", NULL, 0, NULL);
-	time_t start, ending;
-	time(&start);
+	//time_t start, ending;
+	//time(&start);
 	int i = 0;
 	//auto resd = mciSendString(L"open \"C:\\Temp\\sound\\warning_Beep.mp3\" type mpegvideo alias mp3", NULL, 0, NULL);
 	//auto resd=mciSendString(L"open \"C:\\Temp\\sound\\Beep-2sec.mp3\" type mpegvideo alias mp3", NULL, 0, NULL);
@@ -116,24 +116,25 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	//mciSendString(L"stop mp3", NULL, 0, NULL);
 	//resd = PlaySound(L"D:/Personal/Music/Enigma - Je T aime till My Dying Day - musicgeek.ir.mp3", NULL, SND_FILENAME); //SND_FILENAME or SND_LOOP
-	while (i++ < 20)
+	while (i++ < 5000)
 	{
 		auto iter = list.begin();
-
+		if (iter == list.end()) { break; }
 		//using namespace date;
 
 		string fName = "D:/Temp/Images/" + to_string(i) + ".jpg";
 		wstring path_wstr(fName.begin(), fName.end());
-		cam1.TakeImage(move(make_pair(iter->first, iter->second)), 600, 800, path_wstr.c_str(), 0);
-		cout << path_wstr.c_str() << "\n";
+		cam1.TakeImage((make_pair(iter->first, iter->second)), 600, 800, path_wstr.c_str(), 0);
+		//cam1.WriteOnImage(path_wstr.c_str(), L"1402/06/06 14:00:00\n Card number:6037991125638547");
+		//cout << *path_wstr.c_str() << "\n";
 
 
 		//cam1.TakeImage(1, 480, 640, path_wstr.c_str(), 0);
-
-
+		/*if (iter == list.end()) { break; }
+		iter++;
 		string fNameVideo = "D:/Temp/" + to_string(i) + ".wmv";
 		wstring path_wstrVideo(fNameVideo.begin(), fNameVideo.end());
-		cam1.RecordVideo(move(make_pair(iter->first, iter->second)), 5, path_wstrVideo.c_str(), Synch, L"CARD NUMBER:6037-9911-2563-4998");
+		cam2.RecordVideo((make_pair(iter->first, iter->second)), 5, path_wstrVideo.c_str(), Synch, L"PAN:6037991125634998");*/
 
 		//std::make_pair("vid_05a3pid_9320", "NH_USB CAMERA1")
 		//"vid_1871pid_0306" 
@@ -143,11 +144,11 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		Sleep(1);
 	}
-	time(&ending);
+	/*time(&ending);
 	cout << "Total time required = "
 		<< difftime(ending, start)
 		<< " seconds " << endl;
-	cin.get();
+	cin.get();*/
 	return 0;
 }
 
