@@ -1,5 +1,5 @@
 # DirectShow Camera Project
- In this project I have shown how to connect to USB cameras and do some operations by Microsoft DirectShow.
+ In this project I have shown how to connect to USB cameras and do some operations (Video Recording, Taking Image) by Microsoft DirectShow.
  all codes have been writen on Microsoft Visual Studio and C++ language 
  The operation that this project does are :
   -Connect and find camera by its DevicePath (beccause I have seen some devices with the exactly same PID&VID)
